@@ -106,7 +106,7 @@ TEST_CASE("Test sem_trywait") {
 	test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
 	test_assert_equal(value, 0);
 
-	test_assert_equal(sem_trywait(&semaphore), EAGAIN);
+	test_assert_equal(sem_trywait(&semaphore), -EAGAIN);
 	test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
 	test_assert_equal(value, 0);
 }
@@ -132,7 +132,7 @@ TEST_CASE("Test sem_timedwait") {
 
 	clock_gettime(CLOCK_REALTIME, &ts);
 	ts.tv_nsec += 100000000;		// Wait 0.1s
-	test_assert_equal(sem_timedwait(&semaphore, &ts), ETIMEDOUT);
+	test_assert_equal(sem_timedwait(&semaphore, &ts), -ETIMEDOUT);
 	clock_gettime(CLOCK_REALTIME, &now);
 	test_assert(ts_cmp(&ts, &now, <=));
 	test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
