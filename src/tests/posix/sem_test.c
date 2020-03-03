@@ -7,12 +7,18 @@
  */
 
 #include <errno.h>
+#include <time.h>
 #include <semaphore.h>
 #include <embox/test.h>
 
 EMBOX_TEST_SUITE("posix/semaphore test");
 
 #define SEMAPHORE_INIT_VALUE 5
+
+#define ts_cmp(a, b, CMP)				\
+	(((a)->tv_sec == (b)->tv_sec) ?		\
+	 ((a)->tv_nsec CMP (b)->tv_nsec) :	\
+	 ((a)->tv_sec CMP (b)->tv_sec))
 
 TEST_CASE("Test sem_init with shared=0, value=0") {
 	sem_t semaphore;
@@ -105,8 +111,33 @@ TEST_CASE("Test sem_trywait") {
 	test_assert_equal(value, 0);
 }
 
-/*
-extern int    sem_timedwait(sem_t *, const struct timespec *); //this
+/* TODO: implement sem_timedwait
+TEST_CASE("Test sem_timedwait") {
+	sem_t semaphore;
+	struct timespec now, ts;
+    int value = -1;
+	
+	test_assert_equal(sem_init(&semaphore, 0, 1), ENOERR);
+    test_assert_equal(value, -1);
+    test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
+    test_assert_equal(value, 1);
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	ts.tv_nsec += 100000000;		// Wait 0.1s
+	test_assert_equal(sem_timedwait(&semaphore, &ts), ENOERR);
+	clock_gettime(CLOCK_REALTIME, &now);
+	test_assert(ts_cmp(&ts, &now, >));	// Assert ts is after now
+	test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
+	test_assert_equal(value, 0);
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	ts.tv_nsec += 100000000;		// Wait 0.1s
+	test_assert_equal(sem_timedwait(&semaphore, &ts), ETIMEDOUT);
+	clock_gettime(CLOCK_REALTIME, &now);
+	test_assert(ts_cmp(&ts, &now, <=));
+	test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
+	test_assert_equal(value, 0);
+}
 */
 
 /*
