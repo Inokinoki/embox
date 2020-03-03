@@ -94,11 +94,16 @@ static void printer_long(const char *path, struct stat *sb) {
 
 static void print(char *path, DIR *dir, int recursive, item_print *printer) {
 	struct dirent *dent;
+	char *line;
 
 	while (NULL != (dent = readdir(dir))) {
 		int pathlen = strlen(path);
 		int dent_namel = strlen(dent->d_name);
-		char line[pathlen + dent_namel + 3];
+		line = (char*)malloc(sizeof(char) * (pathlen + dent_namel + 3));
+		if (line == NULL) {
+			printf("Failed to allocate memory for buffer!\n");
+			return;
+		}
 		struct stat sb;
 
 		if (pathlen > 0) {
@@ -109,6 +114,7 @@ static void print(char *path, DIR *dir, int recursive, item_print *printer) {
 
 		if (-1 == stat(line, &sb)) {
 			printf("Cannot stat %s\n", line);
+			free(line);
 			continue;
 		}
 
@@ -125,6 +131,7 @@ static void print(char *path, DIR *dir, int recursive, item_print *printer) {
 
 			closedir(d);
 		}
+		free(line);
 	}
 }
 
@@ -161,27 +168,37 @@ int main(int argc, char **argv) {
 	if (optind < argc) {
 		struct stat sb;
 
-		if (-1 == stat(argv[optind], &sb)) {
+		do {
+			if (-1 == stat(argv[optind], &sb)) {
+				return -errno;
+			}
+
+			if (!S_ISDIR(sb.st_mode)) {
+				printer(argv[optind], &sb);
+				continue;
+			}
+
+			snprintf(dir_name, NAME_MAX, "%s", argv[optind]);
+
+			if (NULL == (dir = opendir(dir_name))) {
+				return -errno;
+			}
+
+			print(dir_name, dir, recursive, printer);
+	
+			closedir(dir);
+		} while (optind++ < argc - 1);
+	} else {
+		strcpy(dir_name, ".");
+
+		if (NULL == (dir = opendir(dir_name))) {
 			return -errno;
 		}
 
-		if (!S_ISDIR(sb.st_mode)) {
-			printer(argv[optind], &sb);
-			return 0;
-		}
+		print(dir_name, dir, recursive, printer);
 
-		sprintf(dir_name, "%s", argv[optind]);
-	} else {
-		strcpy(dir_name, ".");
+		closedir(dir);
 	}
-
-	if (NULL == (dir = opendir(dir_name))) {
-		return -errno;
-	}
-
-	print(dir_name, dir, recursive, printer);
-
-	closedir(dir);
 
 	return 0;
 }
