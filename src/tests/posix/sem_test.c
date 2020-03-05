@@ -69,7 +69,7 @@ TEST_CASE("Test sem_wait") {
     test_assert_equal(value, -1);
     test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
     test_assert_equal(value, SEMAPHORE_INIT_VALUE); 	// Test before sem_wait
-    
+
     test_assert_equal(sem_wait(&semaphore), ENOERR);
     test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
     test_assert_equal(value, SEMAPHORE_INIT_VALUE - 1); // Test after sem_wait
@@ -83,7 +83,7 @@ TEST_CASE("Test sem_post") {
     test_assert_equal(value, -1);
     test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
     test_assert_equal(value, SEMAPHORE_INIT_VALUE); 	// Test before sem_wait
-    
+
     test_assert_equal(sem_wait(&semaphore), ENOERR);
     test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
     test_assert_equal(value, SEMAPHORE_INIT_VALUE - 1); // Test after sem_wait
@@ -116,7 +116,7 @@ TEST_CASE("Test sem_timedwait") {
 	sem_t semaphore;
 	struct timespec now, ts;
     int value = -1;
-	
+
 	test_assert_equal(sem_init(&semaphore, 0, 1), ENOERR);
     test_assert_equal(value, -1);
     test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
