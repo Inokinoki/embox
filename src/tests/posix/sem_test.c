@@ -10,6 +10,8 @@
 #include <time.h>
 #include <semaphore.h>
 #include <embox/test.h>
+#include <kernel/thread.h>
+#include <util/err.h>
 
 EMBOX_TEST_SUITE("posix/semaphore test");
 
@@ -111,7 +113,8 @@ TEST_CASE("Test sem_trywait") {
 	test_assert_equal(value, 0);
 }
 
-/* TODO: implement sem_timedwait
+
+// TODO: implement sem_timedwait
 TEST_CASE("Test sem_timedwait") {
 	sem_t semaphore;
 	struct timespec now, ts;
@@ -137,6 +140,45 @@ TEST_CASE("Test sem_timedwait") {
 	test_assert(ts_cmp(&ts, &now, <=));
 	test_assert_equal(sem_getvalue(&semaphore, &value), ENOERR);
 	test_assert_equal(value, 0);
+}
+
+/* TODO: implement sem_timedwait
+static struct thread *sem_post_thread;
+static sem_t semaphore_test_timedwait;
+
+static void *sem_post_run(void *arg) {
+	struct timespec now, ts;
+	clock_gettime(CLOCK_REALTIME, &ts);
+	ts.tv_nsec += 100000000;
+
+	do {
+		clock_gettime(CLOCK_REALTIME, &now);
+	} while (ts_cmp(&now, &ts, <));
+
+	sem_post(&semaphore_test_timedwait);
+
+	return NULL;
+}
+
+TEST_CASE("Test sem_timedwait") {
+	struct timespec ts;
+    int value = -1;
+
+	test_assert_equal(sem_init(&semaphore_test_timedwait, 0, 1), ENOERR);
+    test_assert_equal(value, -1);
+    test_assert_equal(sem_getvalue(&semaphore_test_timedwait, &value), ENOERR);
+    test_assert_equal(value, 1);
+
+	test_assert_equal(sem_trywait(&semaphore_test_timedwait), ENOERR);
+
+	// Create thread and launch it to release semaphore after 0.1s
+	sem_post_thread = thread_create(THREAD_FLAG_SUSPENDED, sem_post_run, NULL);
+	test_assert_zero(err(sem_post_thread));
+	test_assert_zero(thread_launch(sem_post_thread));
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	ts.tv_nsec += 200000000;		// Wait 0.2s
+	test_assert_equal(sem_timedwait(&semaphore_test_timedwait, &ts), ENOERR);
 }
 */
 
