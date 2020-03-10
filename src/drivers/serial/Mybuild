@@ -48,6 +48,15 @@ module raspi_uart extends embox.driver.diag.diag_api {
 	depends diag
 }
 
+module raspi2_uart extends embox.driver.diag.diag_api {
+	option number baud_rate=115200
+
+	source "raspi2_uart.c"
+
+	depends core
+	depends diag
+}
+
 module stm32_usart extends embox.driver.diag.diag_api {
 	option number baud_rate
 	/*option boolean hw_flow = false*/

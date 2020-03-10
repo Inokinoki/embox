@@ -35,5 +35,16 @@ hardware_init_hook:
 	orr r0, r0, #ACR_L2EN /* enabling L2 cache */
 	mcr p15, 0, r0, c1, c0, 1
 
+	mrc     p15, 0, r0, c0, c0, 5
+	ubfx    r0, r0, #0, #2
+	cmp     r0, #0
+	beq		primary_core
+
+	// halt
+halt:
+	wfe
+	b halt
+
+primary_core:
 	mov pc, lr
 

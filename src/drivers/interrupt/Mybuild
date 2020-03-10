@@ -21,6 +21,12 @@ module raspi extends irqctrl_api {
 	depends embox.util.Bit
 }
 
+module raspi2 extends irqctrl_api {
+	source "raspi2.c", "raspi.h"
+
+	depends embox.util.Bit
+}
+
 @BuildDepends(embox.arch.arm.cmsis)
 module cmsis_nvic extends irqctrl_api {
 	option number irq_table_size = 16

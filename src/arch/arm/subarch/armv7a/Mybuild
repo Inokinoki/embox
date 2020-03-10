@@ -13,3 +13,14 @@ module bundle {
 	depends embox.arch.arm.armlib.armv7_monitor_mode
 }
 
+module arm11 extends embox.arch.arm.armlib.cpu {
+	source "cpu_reset.S"
+
+	depends embox.arch.arm.armlib.arch
+	depends embox.arch.arm.armlib.locore
+	depends embox.arch.generic.arch
+
+	depends embox.arch.arm.armlib.context
+	depends embox.arch.arm.armlib.interrupt
+	depends embox.arch.arm.armlib.armv7_monitor_mode
+}
