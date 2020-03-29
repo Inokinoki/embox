@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <stdio.h>
 
+#include <kernel/printk.h>
+
 #include <util/dlist.h>
 #include <drivers/char_dev.h>
 #include <drivers/usb/usb.h>
@@ -28,6 +30,8 @@ int usb_driver_register(struct usb_driver *drv) {
 	if (drv->probe == NULL) {
 		return -EINVAL;
 	}
+
+	// printk("usb: driver: Adding %04x:%04x\n", drv->id_table[0].vid, drv->id_table[0].pid);
 
 	dlist_head_init(&drv->drv_link);
 
@@ -72,6 +76,8 @@ int usb_driver_open_by_node(struct inode *n, struct usb_dev_desc **ddesc) {
 static int usb_driver_match_table(struct usb_dev *dev,
 		struct usb_device_id id_table[]) {
 	struct usb_device_id *id;
+
+	// printk("usb: driver: Matching %04x:%04x\n", dev->dev_desc.id_vendor, dev->dev_desc.id_product);
 
 	id = id_table;
 
@@ -136,7 +142,7 @@ int usb_driver_probe(struct usb_dev *dev) {
 				dev->dev_desc.id_vendor,
 				dev->dev_desc.id_product);
 
-		char_dev_register(NULL);
+		// char_dev_register(NULL);
 	}
 	return 0;
 }

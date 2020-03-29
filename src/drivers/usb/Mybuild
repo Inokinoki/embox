@@ -25,3 +25,9 @@ module driver_example {
 
 	depends core
 }
+
+module driver_hid_my_mouse {
+	source "usb_hid_my_mouse.c"
+
+	depends core
+}
