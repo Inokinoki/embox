@@ -74,7 +74,11 @@ int usb_ms_transfer(struct usb_dev *dev, void *ms_cmd,
 			endp = dev->endpoints[mass->blkin];
 		} else if (dir == USB_DIRECTION_OUT) {
 			endp = dev->endpoints[mass->blkout];
+		} else {
+			log_error("Unsupported direction: %d", dir);
+			goto failed;
 		}
+
 		res = usb_endp_bulk_wait(endp, buf, len, MS_BULK_TIMEOUT);
 		if (res < 0) {
 			goto failed;
@@ -125,7 +129,7 @@ static int usb_mass_start(struct usb_dev *dev) {
 	ret = usb_endp_control_wait(dev->endpoints[0],
 			USB_DIR_OUT | USB_REQ_TYPE_CLASS | USB_REQ_RECIP_IFACE,
 			USB_REQ_MASS_RESET, 0,
-			dev->iface_desc.b_interface_number, 0, NULL, 1000);
+			dev->iface_desc[0]->b_interface_number, 0, NULL, 1000);
 	if (ret) {
 		log_error("Mass storage reset error\n\n");
 		return -1;
@@ -136,7 +140,7 @@ static int usb_mass_start(struct usb_dev *dev) {
 	ret = usb_endp_control_wait(dev->endpoints[0],
 			USB_DIR_IN | USB_REQ_TYPE_CLASS | USB_REQ_RECIP_IFACE,
 			USB_REQ_MASS_MAXLUN, 0,
-			dev->iface_desc.b_interface_number, 1, &mass->maxlun, 1000);
+			dev->iface_desc[0]->b_interface_number, 1, &mass->maxlun, 1000);
 	if (ret) {
 		log_error("Mass storage conftrol error\n\n");
 		return -1;
@@ -173,7 +177,7 @@ static struct usb_device_id usb_ms_id_table[] = {
 	{ },
 };
 
-struct usb_driver usb_driver_ms = {
+static struct usb_driver usb_driver_ms = {
 	.name = "mass_storage",
 	.probe = usb_ms_probe,
 	.disconnect = usb_ms_disconnect,

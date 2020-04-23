@@ -36,6 +36,12 @@ static struct usb_hub *usb_dev_to_hub(struct usb_dev *dev) {
 	return (struct usb_hub *)dev->driver_data;
 }
 
+static int is_rndis(struct usb_desc_interface *desc) {
+	return desc->b_interface_class == 2 /* USB_CLASS_COMM */
+	               && desc->b_interface_subclass == 2
+	               && desc->b_interface_protocol == 0xff;
+}
+
 /* TODO May be to use usb bus instead of hcd and
  * get hcd from bus? */
 struct usb_dev *usb_new_device(struct usb_dev *parent,
@@ -62,6 +68,8 @@ struct usb_dev *usb_new_device(struct usb_dev *parent,
 	}
 
 	if (parent) { /* It's not a Root Hub */
+		int cfg;
+
 		hub = usb_dev_to_hub(parent);
 		assert(hub);
 		/* Here we reset device and set address. */
@@ -69,11 +77,19 @@ struct usb_dev *usb_new_device(struct usb_dev *parent,
 			log_error("usb_hub_port_init failed");
 			goto out_err;
 		}
-		/* Fill device configuration. */
-		if (usb_get_configuration(dev, 0) < 0) {
-			log_error("usb_get_configuration failed");
-			goto out_err;
-		}
+
+		cfg = -1;
+		do {
+			if (++cfg > 0) {
+				usb_free_configuration(dev);
+			}
+			/* Fill device configuration. */
+			if (usb_get_configuration(dev, cfg) < 0) {
+				log_error("usb_get_configuration failed");
+				goto out_err;
+			}
+		/* Skip Microsoft's RNDIS */
+		} while (is_rndis(dev->iface_desc[0]));
 
 		/* Set device default configuration. */
 		/* http://www.usbmadesimple.co.uk/ums_4.htm */
@@ -81,8 +97,8 @@ struct usb_dev *usb_new_device(struct usb_dev *parent,
 		 * request will have wValue set to 1, which will select the first configuration.
 		 * Set Configuration can also be used, with wValue set to 0, to deconfigure the device.
 		 */
-		if (usb_set_configuration(dev, 1) < 0) {
-			log_error("usb_get_configuration failed");
+		if (usb_set_configuration(dev, cfg == 0 ? 1 : cfg) < 0) {
+			log_error("usb_set_configuration failed");
 			goto out_err;
 		}
 	}
@@ -360,7 +376,7 @@ static int usb_hub_probe(struct usb_dev *dev) {
 			hub_desc.b_pwr_on_2_pwr_good, hub_desc.b_hub_contr_current);
 
 	if (!is_root_hub(dev)) {
-		uint16_t status, hubstatus, hubchange;
+		uint16_t status = 0, hubstatus = 0, hubchange = 0;
 
 		ret = usb_endp_control_wait(dev->endpoints[0],
 			USB_DIR_IN | USB_REQ_TYPE_STANDARD | USB_REQ_RECIP_DEVICE,
@@ -380,11 +396,6 @@ static int usb_hub_probe(struct usb_dev *dev) {
 		}
 		log_debug("  hubstatus=0x%04x, hubchange=0x%04x", hubstatus, hubchange);
 	}
-
-	for (i = 0; i < hub->port_n; i++) {
-		usb_hub_clear_port_feature(hub, i, USB_PORT_FEATURE_POWER);
-	}
-	usleep(100 * 1000);
 
 	for (i = 0; i < hub->port_n; i++) {
 		usb_hub_set_port_feature(hub, i, USB_PORT_FEATURE_POWER);

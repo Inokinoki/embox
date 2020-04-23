@@ -38,7 +38,7 @@ static void print_drive (struct ide_tab *ide) {
 			assert(drive);
 			dev_bsize = block_dev_block_size(drive->bdev);
 			dev_size = block_dev_size(drive->bdev);
-			printf(" %s;", ((struct inode *)block_dev(drive->bdev)->dev_vfs_info)->name);
+			printf(" %s;", block_dev(drive->bdev)->name);
 			printf(" %s", drive->param.serial);
 			printf(" %s", drive->param.model);
 			printf(" %5.3fM", ((float) dev_size) * dev_bsize / (1024 * 1024));
@@ -51,8 +51,7 @@ static void print_drive (struct ide_tab *ide) {
 int main(int argc, char **argv) {
 	int opt;
 
-	getopt_init();
-	while (-1 != (opt = getopt(argc - 1, argv, "ah"))) {
+	while (-1 != (opt = getopt(argc, argv, "ah"))) {
 		switch(opt) {
 		case 'a':
 			break;
