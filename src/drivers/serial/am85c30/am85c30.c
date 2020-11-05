@@ -11,7 +11,7 @@
 #include <asm/io.h>
 #include <drivers/common/memory.h>
 #include <drivers/diag.h>
-#include <drivers/serial/uart_device.h>
+#include <drivers/serial/uart_dev.h>
 #include <drivers/serial/diag_serial.h>
 
 #include "am85c30.h"
@@ -132,18 +132,12 @@ static struct uart uart0 = {
 
 static const struct uart_params uart_defparams = {
 	.baud_rate = OPTION_GET(NUMBER,baud_rate),
-	.parity = 0,
-	.n_stop = 1,
-	.n_bits = 8,
-	.irq = true,
+	.uart_param_flags = UART_PARAM_FLAGS_USE_IRQ | UART_PARAM_FLAGS_8BIT_WORD,
 };
 
 static const struct uart_params uart_diag_params = {
 	.baud_rate = OPTION_GET(NUMBER,baud_rate),
-	.parity = 0,
-	.n_stop = 1,
-	.n_bits = 8,
-	.irq = false,
+	.uart_param_flags = UART_PARAM_FLAGS_8BIT_WORD,
 };
 
 DIAG_SERIAL_DEF(&uart0, &uart_diag_params);

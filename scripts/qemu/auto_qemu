@@ -6,7 +6,7 @@
 DATADIR="$(dirname "$0")"
 CONFDIR=./conf
 
-MODS_CONF=$CONFDIR/mods.config
+MODS_CONF=$CONFDIR/mods.conf
 LDS_CONF=$CONFDIR/lds.conf
 BUILD_CONF=$CONFDIR/build.conf
 
@@ -149,6 +149,8 @@ guess_machine() {
 		arm)
 			if cat $BUILD_CONF | gcc -P -E - | grep "overo" >/dev/null; then
 				echo "-M overo"
+			elif cat $BUILD_CONF | gcc -P -E - | grep "SECO-Q7-796" >/dev/null; then
+				echo "-M overo"
 			elif cat $BUILD_CONF | gcc -P -E - | grep "integratorcp" >/dev/null; then
 				echo "-M integratorcp"
 			elif cat $BUILD_CONF | gcc -P -E - | grep "vexpress-a9" > /dev/null; then
@@ -182,6 +184,15 @@ guess_machine() {
 			echo "-M leon3_generic -cpu LEON3"
 			;;
 		riscv)
+			if cat $BUILD_CONF | gcc -P -E - | grep "sifive_e" >/dev/null; then
+				echo "-M sifive_e"
+			elif cat $BUILD_CONF | gcc -P -E - | grep "sifive_u" >/dev/null; then
+				echo "-M sifive_u"
+			else
+				echo "-M virt"
+			fi
+			;;
+		riscv64)
 			echo "-M virt"
 			;;
 		x86)
@@ -219,6 +230,7 @@ NIC2QEMU=(
 	[fec]="imx.enet"
 	[dwc_gmac]="dwgmac"
 	[usbnet]="usb-net"
+	[cadence_gem]="cadence_gem"
 )
 
 IFS=" " read -a qemu_nics <<< "$AUTOQEMU_NICS"
@@ -239,12 +251,10 @@ if [ $nic_n -gt 0 ]; then
 		if [ ${qemu_nics_config[$ni]} ] && [ ${qemu_nics_config[$ni]} != "-" ]; then
 			host_nic_config=${qemu_nics_config[$ni]}
 		else
+			host_nic_config="tap,script=$DATADIR/start_script,downscript=$DATADIR/stop_script"
 			if [ $nic_model = "virtio" ]; then
-				vnet_hdr="vnet_hdr=no"
-			else
-				vnet_hdr=""
+				host_nic_config="$host_nic_config,vnet_hdr=no"
 			fi
-			host_nic_config="tap,script=$DATADIR/start_script,downscript=$DATADIR/stop_script,$vnet_hdr"
 		fi
 
 		nic_macaddr="AA:BB:CC:DD:EE:0$(($ni + 2))"

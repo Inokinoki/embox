@@ -34,6 +34,7 @@ static irq_return_t stm32_dma_rx_irq(unsigned int irq_num,
 	HAL_DMA_IRQHandler(uSdHandle.hdmarx);
 	return IRQ_HANDLED;
 }
+STATIC_IRQ_ATTACH(STM32_DMA_RX_IRQ, stm32_dma_rx_irq, NULL);
 
 static irq_return_t stm32_dma_tx_irq(unsigned int irq_num,
 		void *audio_dev) {
@@ -41,6 +42,7 @@ static irq_return_t stm32_dma_tx_irq(unsigned int irq_num,
 	HAL_DMA_IRQHandler(uSdHandle.hdmatx);
 	return IRQ_HANDLED;
 }
+STATIC_IRQ_ATTACH(STM32_DMA_TX_IRQ, stm32_dma_tx_irq, NULL);
 
 static irq_return_t stm32_sdmmc_irq(unsigned int irq_num,
 		void *audio_dev) {
@@ -48,6 +50,7 @@ static irq_return_t stm32_sdmmc_irq(unsigned int irq_num,
 	HAL_SD_IRQHandler(&uSdHandle);
 	return IRQ_HANDLED;
 }
+STATIC_IRQ_ATTACH(STM32_SDMMC_IRQ, stm32_sdmmc_irq, NULL);
 
 static const struct block_dev_driver stm32f7_sd_driver = {
 	.name  = STM32F7_SD_DEVNAME,
@@ -108,15 +111,15 @@ static int stm32f7_sd_init(void *arg) {
 }
 
 static int stm32f7_sd_ioctl(struct block_dev *bdev, int cmd, void *buf, size_t size) {
-	SD_CardInfo info;
+	HAL_SD_CardInfoTypeDef info;
 
 	BSP_SD_GetCardInfo(&info);
 
 	switch (cmd) {
 	case IOCTL_GETDEVSIZE:
-		return info.CardCapacity;
+		return info.BlockNbr * info.BlockSize;
 	case IOCTL_GETBLKSIZE:
-		return info.CardBlockSize;
+		return info.BlockSize;
 	default:
 		return -1;
 	}
@@ -128,14 +131,17 @@ static int stm32f7_sd_read(struct block_dev *bdev, char *buf, size_t count, blkn
 	assert(count <= SD_BUF_SIZE);
 	int res = -1;
 	size_t bsize = bdev->block_size;
+
+	assert(bsize == BLOCKSIZE);
+
 #ifdef USE_LOCAL_BUF
-	res = BSP_SD_ReadBlocks_DMA((uint32_t *) sd_buf, blkno * bsize, bsize, 1) ? -1 : bsize;
+	res = BSP_SD_ReadBlocks_DMA((uint32_t *) sd_buf, blkno, 1) ? -1 : bsize;
 	if (res == -1) {
 		log_error("BSP_SD_ReadBlocks_DMA failed, blkno=%d\n", blkno);
 	}
 	memcpy(buf, sd_buf, bsize);
 #else
-	res = BSP_SD_ReadBlocks_DMA((uint32_t *) buf, blkno * bsize, bsize, 1) ? -1 : bsize;
+	res = BSP_SD_ReadBlocks_DMA((uint32_t *) buf, blkno, 1) ? -1 : bsize;
 	if (res == -1) {
 		log_error("BSP_SD_ReadBlocks_DMA failed, blkno=%d\n", blkno);
 	}
@@ -148,14 +154,17 @@ static int stm32f7_sd_write(struct block_dev *bdev, char *buf, size_t count, blk
 	assert(count <= SD_BUF_SIZE);
 	int res;
 	size_t bsize = bdev->block_size;
+
+	assert(bsize == BLOCKSIZE);
+
 #ifdef USE_LOCAL_BUF
 	memcpy(sd_buf, buf, bsize);
-	res = BSP_SD_WriteBlocks_DMA((uint32_t *) sd_buf, blkno * bsize, bsize, 1) ? -1 : bsize;
+	res = BSP_SD_WriteBlocks_DMA((uint32_t *) sd_buf, blkno, 1) ? -1 : bsize;
 	if (res == -1) {
 		log_error("BSP_SD_WriteBlocks_DMA failed, blkno=%d\n", blkno);
 	}
 #else
-	res = BSP_SD_WriteBlocks_DMA((uint32_t *) buf, blkno * bsize, bsize, 1) ? -1 : bsize;
+	res = BSP_SD_WriteBlocks_DMA((uint32_t *) buf, blkno, 1) ? -1 : bsize;
 	if (res == -1) {
 		log_error("BSP_SD_WriteBlocks_DMA failed, blkno=%d\n", blkno);
 	}

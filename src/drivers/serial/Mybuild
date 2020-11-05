@@ -8,7 +8,7 @@ abstract module core {
 	source "uart_dev.c"
 
 	@IncludeExport(path="drivers/serial")
-	source "uart_device.h"
+	source "uart_dev.h"
 
 	@NoRuntime depends embox.util.indexator
 	@NoRuntime depends embox.util.dlist
@@ -85,12 +85,4 @@ module multiclet extends embox.driver.diag.diag_api {
 	source "multiclet_uart.c"
 
 	depends third_party.bsp.multiclet.core
-}
-
-module sifive_uart extends embox.driver.diag.diag_api {
-	option number base_addr
-	option number clock_freq
-	option number baud_rate
-
-	source "sifive_uart.c"
 }

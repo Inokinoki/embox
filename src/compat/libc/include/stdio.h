@@ -51,9 +51,7 @@ extern int putc(int c, FILE *f);
 extern int fputc(int c, FILE *f);
 
 extern int fgetc(FILE *f);
-static inline int getc(FILE *f) {
-	return fgetc(f);
-}
+extern int getc(FILE *f);
 
 
 /**
@@ -226,19 +224,11 @@ extern void setbuf(FILE *stream, char *buf);
 /* #define _GNU_SOURCE  */
 extern int asprintf(char **strp, const char *fmt, ...);
 
-/*******************************************
- * stubs
- *******************************************/
-static inline FILE *popen(const char *command, const char *type) {
-	(void) command;
-	(void) type;
-	return NULL;
-}
+extern FILE *popen(const char *command, const char *type);
+extern int pclose(FILE *stream);
 
-static inline int pclose(FILE *stream) {
-	(void) stream;
-	return 0;
-}
+extern FILE *tmpfile(void);
+extern char *tmpnam(char *s);
 
 __END_DECLS
 

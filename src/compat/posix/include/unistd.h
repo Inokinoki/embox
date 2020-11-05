@@ -28,6 +28,7 @@
 #define _SC_PAGE_SIZE         _SC_PAGESIZE
 #define _SC_CLK_TCK           2
 #define _SC_GETPW_R_SIZE_MAX  3
+#define _SC_ATEXIT_MAX        4
 /*not posix */
 #define _SC_NPROCESSORS_ONLN  103
 #define _SC_NPROCESSORS_CONF  _SC_NPROCESSORS_ONLN
@@ -48,7 +49,6 @@ _SC_AIO_LISTIO_MAX
 _SC_AIO_MAX
 _SC_AIO_PRIO_DELTA_MAX
 _SC_ASYNCHRONOUS_IO
-_SC_ATEXIT_MAX
 _SC_BC_BASE_MAX
 _SC_BC_DIM_MAX
 _SC_BC_SCALE_MAX
@@ -154,6 +154,10 @@ extern ssize_t write(int fd, const void *buf, size_t nbyte);
 
 extern ssize_t read(int fd, void *buf, size_t nbyte);
 
+extern ssize_t pwrite(int fd, const void *buf, size_t nbyte, off_t offset);
+
+extern ssize_t pread(int fildes, void *buf, size_t nbyte, off_t offset);
+
 extern ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
 
 extern ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
@@ -246,6 +250,12 @@ static inline int access(const char *path, int amode) {
 
 extern void swab(const void *bfrom, void *bto, ssize_t n);
 
+/**
+ * @param argc is the number of arguments on cmdline
+ * @param argv is the pointer to array of cmdline arguments
+ * @param opts is the string of all valid options
+ * each char case must be given; options taking an arg are followed by = ':'
+ */
 extern int getopt(int argc, char *const argv[], const char *opts);
 
 extern char *optarg; /**< argument to optopt */
@@ -263,6 +273,20 @@ extern char **environ;
 
 #define PASS_MAX 32
 extern char *getpass(const char *prompt);
+
+/**
+ * @brief Non posix extension of deprecated @a getpass that not use static buffers and
+ * therefore thread-safe.
+ *
+ * @param prompt Prompt to be printed to user
+ * @param buf Buffer to store user's input
+ * @param buflen @a buf length
+ *
+ * @return
+ * 	NULL on error
+ * 	pointer to user entered password
+ */
+extern char *getpass_r(const char *prompt, char *buf, size_t buflen);
 
 extern int gethostname(char *name, size_t len);
 

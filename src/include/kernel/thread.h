@@ -120,6 +120,9 @@ __BEGIN_DECLS
  */
 struct thread *thread_create(unsigned int flags, void *(*run)(void *), void *arg);
 
+struct thread *thread_create_with_stack(unsigned int flags,
+	size_t stack_sz, void *(*run)(void *), void *arg);
+
 /**
  * This is a kernel internal function. It use only for initializing field of a
  * thread structure in create_thread function and function created special
@@ -233,6 +236,8 @@ extern void thread_set_run_arg(struct thread *t, void *run_arg);
  *   Running time in clocks.
  */
 extern clock_t thread_get_running_time(struct thread *thread);
+
+extern int thread_priority_by_flags(unsigned int flags);
 
 __END_DECLS
 

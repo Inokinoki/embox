@@ -9,33 +9,31 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-
 #include <util/math.h>
-
 #include <kernel/irq.h>
 #include <hal/reg.h>
-
 #include <net/netdevice.h>
 #include <net/inetdevice.h>
 #include <net/l0/net_entry.h>
 #include <net/l2/ethernet.h>
 #include <net/l3/arp.h>
 #include <net/util/show_packet.h>
-
 #include <drivers/net/stm32cube_eth.h>
-
 #include <util/log.h>
-
 #include <embox/unit.h>
+#include <arm/cpu_cache.h>
 
 EMBOX_UNIT_INIT(stm32eth_init);
 
-#define STM32ETH_IRQ (ETH_IRQn + 16)
+#define STM32ETH_IRQ   OPTION_GET(NUMBER, irq)
 
 static ETH_HandleTypeDef stm32_eth_handler;
 
-static ETH_DMADescTypeDef DMARxDscrTab[ETH_RXBUFNB]__attribute__ ((aligned (4)));
-static uint8_t Rx_Buff[ETH_RXBUFNB][ETH_RX_BUF_SIZE] __attribute__ ((aligned (4)));
+static ETH_DMADescTypeDef DMARxDscrTab[ETH_RXBUFNB] \
+	__attribute__ ((aligned (4))) SRAM_NOCACHE_SECTION;
+
+static uint8_t Rx_Buff[ETH_RXBUFNB][ETH_RX_BUF_SIZE] \
+	 __attribute__ ((aligned (4))) SRAM_NOCACHE_SECTION;
 
 #if ETH_TXBUFNB == 0
 #undef  ETH_TXBUFNB
@@ -44,11 +42,17 @@ static uint8_t Rx_Buff[ETH_RXBUFNB][ETH_RX_BUF_SIZE] __attribute__ ((aligned (4)
 #endif
 
 #ifdef TX_NO_BUFF
-static uint8_t Tx_Buff[0][ETH_TX_BUF_SIZE] __attribute__ ((aligned (4)));
-static ETH_DMADescTypeDef DMATxDscrTab[ETH_TXBUFNB]__attribute__ ((aligned (4)));
+static uint8_t Tx_Buff[0][ETH_TX_BUF_SIZE] \
+	__attribute__ ((aligned (4))) SRAM_NOCACHE_SECTION;
+
+static ETH_DMADescTypeDef DMATxDscrTab[ETH_TXBUFNB] \
+	__attribute__ ((aligned (4))) SRAM_NOCACHE_SECTION;
 #else
-static uint8_t Tx_Buff[ETH_TXBUFNB][ETH_TX_BUF_SIZE] __attribute__ ((aligned (4)));
-static ETH_DMADescTypeDef DMATxDscrTab[ETH_TXBUFNB]__attribute__ ((aligned (4)));
+static uint8_t Tx_Buff[ETH_TXBUFNB][ETH_TX_BUF_SIZE] \
+	__attribute__ ((aligned (4))) SRAM_NOCACHE_SECTION;
+
+static ETH_DMADescTypeDef DMATxDscrTab[ETH_TXBUFNB] \
+	__attribute__ ((aligned (4))) SRAM_NOCACHE_SECTION;
 #endif
 
 static void low_level_init(unsigned char mac[6]) {
@@ -69,7 +73,7 @@ static void low_level_init(unsigned char mac[6]) {
 		log_error("HAL_ETH_Init error\n");
 	}
 	if (stm32_eth_handler.State == HAL_ETH_STATE_READY) {
-		log_error("STATE_READY sp %d duplex %d\n",
+		log_info("STATE_READY sp %d duplex %d\n",
 			stm32_eth_handler.Init.Speed, stm32_eth_handler.Init.DuplexMode);
 	}
 
@@ -248,8 +252,4 @@ static int stm32eth_init(void) {
 	return inetdev_register_dev(nic);
 }
 
-/* STM32ETH_IRQ defined through ETH_IRQn, which as enum and
- * can't expand into int, as STATIC_IRQ_ATTACH require
- */
-static_assert(77 == STM32ETH_IRQ);
-STATIC_IRQ_ATTACH(77, stm32eth_interrupt, stm32eth_netdev);
+STATIC_IRQ_ATTACH(STM32ETH_IRQ, stm32eth_interrupt, stm32eth_netdev);

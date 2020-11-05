@@ -70,7 +70,7 @@ static cycle_t integratorcp_counter_read(void) {
 }
 
 static struct time_counter_device integratorcp_counter_device = {
-	.cycle_hz = 1000,
+	.cycle_hz = CLOCK_RATE,
 	.read = integratorcp_counter_read,
 };
 
@@ -82,7 +82,7 @@ static struct clock_source integratorcp_cs = {
 };
 
 static irq_return_t clock_handler(unsigned int irq_nr, void *dev_id) {
-	clock_tick_handler(irq_nr, dev_id);
+	clock_tick_handler(dev_id);
 	REG_STORE(TMR_CLR, 0x01); /* Clear timer interrupt */
 	return IRQ_HANDLED;
 }

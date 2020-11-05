@@ -1,6 +1,0 @@
-package platform.nuklear
-
-module nk_embox_renderer {
-	@IncludeExport(path="")
-	source "nk_embox_render.h"
-}

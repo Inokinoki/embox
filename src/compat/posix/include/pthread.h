@@ -49,6 +49,7 @@ typedef struct thread *pthread_t;
 
 #define PTHREAD_INHERIT_SCHED       THREAD_FLAG_PRIORITY_INHERIT
 #define PTHREAD_CREATE_DETACHED     THREAD_FLAG_DETACHED
+#define PTHREAD_CREATE_JOINABLE     THREAD_FLAG_JOINABLE
 
 
 
@@ -162,6 +163,7 @@ extern int   pthread_mutex_lock(pthread_mutex_t *);
 //extern int   pthread_mutex_setprioceiling(pthread_mutex_t *, int, int *);
 extern int   pthread_mutex_trylock(pthread_mutex_t *);
 extern int   pthread_mutex_unlock(pthread_mutex_t *);
+extern int   pthread_mutex_timedlock(pthread_mutex_t *mutex, const struct timespec *abstime);
 
 extern int   pthread_mutexattr_destroy(pthread_mutexattr_t *);
 //extern int   pthread_mutexattr_getprioceiling(const pthread_mutexattr_t *, int *);
