@@ -8,6 +8,7 @@
 
 #include <assert.h>
 #include <kernel/irq.h>
+#include <kernel/time/clock_source.h>
 #include <util/log.h>
 #include <framework/mod/options.h>
 #include <embox/unit.h>
@@ -17,6 +18,8 @@
 
 #define TMR                  OPTION_GET(NUMBER, timer_n)
 #define DA1469X_TIMER_IRQ    OPTION_GET(NUMBER, irq)
+
+/* FIXME Unused, remove */
 #define TICK_RATE_HZ         OPTION_GET(NUMBER, hz)
 
 #if TMR == 1
@@ -34,10 +37,6 @@
 /* TODO We assume xtal32k is used as LP clock.
  * But there should be more flexible setup. */
 #define CLOCK_FREQ     dg_configXTAL32K_FREQ
-
-#define TICK_PERIOD    (CLOCK_FREQ / TICK_RATE_HZ)
-
-EMBOX_UNIT_INIT(da1469x_timer_init);
 
 static __RETAINED_CODE irq_return_t da1469x_timer_irq_handler(
 		unsigned int irq_nr, void *data) {
@@ -68,23 +67,40 @@ static __RETAINED_CODE irq_return_t da1469x_timer_irq_handler(
 	return IRQ_HANDLED;
 }
 
-void da1469x_timer_set(int trigger) {
-
-	hw_timer_set_reload(TIMER_ID, trigger * TICK_PERIOD);
-
-	hw_timer_enable_clk(TIMER_ID);
-	while (hw_timer_get_count(TIMER_ID) != (trigger * TICK_PERIOD));
-
-	hw_timer_enable(TIMER_ID);
+static cycle_t da1469x_timer_read(struct clock_source *cs) {
+	return hw_timer_get_reload(TIMER_ID) - hw_timer_get_count(TIMER_ID);
 }
 
-static int da1469x_timer_init(void) {
+static int da1469x_timer_set_next_event(struct clock_source *cs,
+		uint32_t next_event) {
+	hw_timer_set_reload(TIMER_ID, next_event);
+
+	hw_timer_enable_clk(TIMER_ID);
+	while (hw_timer_get_count(TIMER_ID) != next_event);
+
+	hw_timer_enable(TIMER_ID);
+
+	return 0;
+}
+
+static struct time_event_device da1469x_timer_event = {
+	.set_next_event = da1469x_timer_set_next_event,
+	.irq_nr = DA1469X_TIMER_IRQ,
+};
+
+static struct time_counter_device da1469x_timer_counter = {
+	.read = da1469x_timer_read,
+	.cycle_hz = CLOCK_FREQ,
+	.mask = 0xffffff,
+};
+
+static int da1469x_timer_init(struct clock_source *cs) {
 	timer_config timer_cfg = {
 		.clk_src = HW_TIMER_CLK_SRC_INT,
 		.prescaler = 0,
 		.timer = {
 			.direction = HW_TIMER_DIR_DOWN,
-			.reload_val = TICK_PERIOD - 1,
+			.reload_val = CLOCK_FREQ - 1,
 			.free_run = false,
 		},
 		.pwm = { .frequency = 0, .duty_cycle = 0 },
@@ -104,3 +120,6 @@ static int da1469x_timer_init(void) {
 }
 
 STATIC_IRQ_ATTACH(DA1469X_TIMER_IRQ, da1469x_timer_irq_handler, NULL);
+
+CLOCK_SOURCE_DEF(da1469x_timer, da1469x_timer_init, NULL,
+	&da1469x_timer_event, &da1469x_timer_counter);

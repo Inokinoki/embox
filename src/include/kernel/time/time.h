@@ -52,11 +52,18 @@ extern struct timespec timespec_add(struct timespec t1,
 		struct timespec t2);
 extern struct timespec timespec_sub(struct timespec t1,
 		struct timespec t2);
+#if 0
 extern struct timespec timespec_add_ns(struct timespec t, time64_t ns);
+#endif
 
 static inline time64_t timespec_to_ns(const struct timespec *ts) {
 	assert(ts != NULL);
 	return ((__s64) ts->tv_sec * NSEC_PER_SEC) + ts->tv_nsec;
+}
+
+static inline time64_t timespec_to_ms(const struct timespec *ts) {
+	assert(ts != NULL);
+	return ((__s64) ts->tv_sec * MSEC_PER_SEC) + ts->tv_nsec / NSEC_PER_MSEC;
 }
 
 static inline uint64_t timespec_to_hw(const struct timespec *ts, uint32_t hz) {
@@ -123,6 +130,10 @@ extern clock_t ns2jiffies(time64_t ns);
 extern clock_t ms2jiffies(time64_t ms);
 extern time64_t jiffies2ms(clock_t jiff);
 extern int jiffies_init(void);
+extern void jiffies_update(int ticks);
+
+extern int monotonic_clock_select(void);
+extern int realtime_clock_select(void);
 
 __END_DECLS
 

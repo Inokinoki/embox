@@ -10,6 +10,8 @@
 
 #include <sys/cdefs.h>
 
+typedef float float_t;
+
 __BEGIN_DECLS
 
 extern double modf(double x, double *i_ptr);
@@ -148,6 +150,10 @@ extern int __isfinitel(long double e);
 extern double hypot(double x, double y);
 extern float hypotf(float x, float y);
 extern long double hypotl(long double x, long double y);
+
+extern double cbrt(double x);
+extern float cbrtf(float x);
+extern long double cbrtl(long double x);
 
 __END_DECLS
 

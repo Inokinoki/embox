@@ -56,8 +56,8 @@ int nanosleep(const struct timespec *rqtp, struct timespec *rmtp) {
 	if (remaining_cycles > 0) {
 		int tmp;
 
-		tmp = remaining_cycles + nanosleep_cs->counter_device->read();
-		hw.jiffies = nanosleep_cs->jiffies + tmp / nanosleep_cs_load;
+		tmp = remaining_cycles + nanosleep_cs->counter_device->read(nanosleep_cs);
+		hw.jiffies = nanosleep_cs->event_device->jiffies + tmp / nanosleep_cs_load;
 		hw.cycles = tmp % nanosleep_cs_load;
 
 		cs_nanospin(nanosleep_cs, &hw);
@@ -66,14 +66,9 @@ int nanosleep(const struct timespec *rqtp, struct timespec *rmtp) {
 	return ENOERR;
 }
 
-void delay(int d) {
-	//FIXME delay must plase in linux/delay.h
-
-}
-
 static void cs_nanospin(struct clock_source *cs, struct hw_time *hw) {
-	while(cs->jiffies < hw->jiffies);
-	while((cs->jiffies == hw->jiffies) && (cs->counter_device->read() <= hw->cycles));
+	while(cs->event_device->jiffies < hw->jiffies);
+	while((cs->event_device->jiffies == hw->jiffies) && (cs->counter_device->read(cs) <= hw->cycles));
 }
 
 static inline struct timespec get_timetosleep(const struct timespec *rqtp) {
@@ -90,23 +85,26 @@ static inline struct timespec get_timetosleep(const struct timespec *rqtp) {
 
 /**
  * Main logic:
- * 1. Calculate execution time of ktime_get_ns (i.e. overhead)
+ * 1. Calculate execution time of ktime_get_timespec (i.e. overhead)
  * 2. Then we can calculate execution of nanosleep without going in ksleep and without spin (i.e. overhead).
  * 3. When we get T ns as argument in nanosleep, we substitute overhead calculated in step 2 from T.
  */
 static int nanosleep_calibrate(void) {
-	uint64_t t, m;
-	const struct timespec rqtp = { .tv_sec = 0, .tv_nsec = 1 };
+	struct timespec t, m, ts;
+	struct timespec rqtp = { .tv_sec = 0, .tv_nsec = 1 };
 
-	m = ktime_get_ns();
-	m = ktime_get_ns() - m;
+	ktime_get_timespec(&t);
+	ktime_get_timespec(&m);
+	timespecsub(&m, &t, &ts);
 
-	log_info("ktime_get_ns execution ns: %d", (int) m);
+	log_info("ktime_get_timespec() execution ns: %d", (int) ts.tv_nsec);
 
-	t = ktime_get_ns();
-	nanosleep(&rqtp, NULL); // calculate nanosleep overhead
-	t = ktime_get_ns() - t;
-	nanosleep_waste_time.tv_nsec = t - m;
+	ktime_get_timespec(&t);
+	nanosleep(&rqtp, NULL);
+	ktime_get_timespec(&m);
+	timespecsub(&m, &t, &rqtp);
+
+	timespecsub(&rqtp, &ts, &nanosleep_waste_time);
 
 	log_info("nanosleep execution ns: %d", (int) nanosleep_waste_time.tv_nsec);
 

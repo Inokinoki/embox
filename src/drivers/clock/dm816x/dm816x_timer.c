@@ -20,8 +20,6 @@
 
 #include <embox/unit.h>
 
-EMBOX_UNIT_INIT(ti8168_clk_init);
-
 #define TI8168_CLKIN_HZ      27000000
 
 #define CM_TIMER1_CLKSEL     0x48180390
@@ -70,7 +68,7 @@ static irq_return_t ti8168_clock_handler(unsigned int irq_nr, void *data) {
 	return IRQ_HANDLED;
 }
 
-static int ti8168_clk_config(struct time_dev_conf *conf) {
+static int ti8168_clk_set_periodic(struct clock_source *cs) {
 	volatile struct gptimer13_1 *gptimer = TI8168_GPTIMER1_BASE;
 
 	REG_STORE(CM_TIMER1_CLKSEL, CM_CLKIN);
@@ -91,13 +89,12 @@ static int ti8168_clk_config(struct time_dev_conf *conf) {
 }
 
 static struct time_event_device ti8168_clk_event = {
-	.config = ti8168_clk_config,
-	.event_hz = 1000,
+	.set_periodic = ti8168_clk_set_periodic,
 	.irq_nr = TI8168_GPTIMER1_IRQ,
 };
 
 /* TODO */
-cycle_t ti8168_this_read(void) {
+static cycle_t ti8168_this_read(struct clock_source *cs) {
 	return 0;
 }
 
@@ -106,19 +103,13 @@ static struct time_counter_device ti8168_counter_device = {
 	.cycle_hz = TI8168_CLKIN_HZ,
 };
 
-struct clock_source ti8168_clk_clock_source = {
-	.name = "ti8168",
-	.event_device = &ti8168_clk_event,
-	.counter_device = &ti8168_counter_device,
-	.read = clock_source_read,
-};
-
-static int ti8168_clk_init(void) {
-
-	clock_source_register(&ti8168_clk_clock_source);
-	return irq_attach(ti8168_clk_event.irq_nr, ti8168_clock_handler, 0, &ti8168_clk_clock_source, "omap3_clk");
+static int dm816x_timer_init(struct clock_source *cs) {
+	return irq_attach(ti8168_clk_event.irq_nr, ti8168_clock_handler, 0, cs, "omap3_clk");
 }
 
 PERIPH_MEMORY_DEFINE(dm816x_timer, (uintptr_t) TI8168_GPTIMER1_BASE, 0x1000);
 
 PERIPH_MEMORY_DEFINE(dm816x_timer_cm, 0x48180000, 0x1000);
+
+CLOCK_SOURCE_DEF(dm816x_timer, dm816x_timer_init, NULL,
+	&ti8168_clk_event, &ti8168_counter_device);

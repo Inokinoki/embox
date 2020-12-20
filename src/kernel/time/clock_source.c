@@ -12,208 +12,176 @@
 #include <string.h>
 #include <errno.h>
 
-#include <util/array.h>
 #include <util/dlist.h>
 #include <util/math.h>
-
-#include <mem/misc/pool.h>
-
-#include <kernel/panic.h>
 #include <kernel/time/clock_source.h>
 #include <kernel/time/time.h>
 
-#include <kernel/sched/schedee_priority.h>
-#include <kernel/lthread/lthread.h>
-
-#include <embox/unit.h>
-
-ARRAY_SPREAD_DEF(const struct time_event_device *const, __event_devices);
-ARRAY_SPREAD_DEF(const struct time_counter_device *const, __counter_devices);
-
-POOL_DEF(clock_source_pool, struct clock_source_head,
-						OPTION_GET(NUMBER, clocks_quantity));
-
 static DLIST_DEFINE(clock_source_list);
 
-static struct timespec cs_full_read(struct clock_source *cs);
-static struct timespec cs_event_read(struct clock_source *cs);
-static struct timespec cs_counter_read(struct clock_source *cs);
-
-static inline cycle_t clock_source_get_jiffies(struct clock_source *cs) {
-	return ((cycle_t) cs->jiffies);
+__attribute__((weak)) int monotonic_clock_select(void) {
+	return 0;
 }
 
-static struct clock_source_head *clock_source_find(struct clock_source *cs) {
-	struct clock_source_head *csh;
+__attribute__((weak)) int realtime_clock_select(void) {
+	return 0;
+}
 
-	dlist_foreach_entry(csh, &clock_source_list, lnk) {
-		if (cs == csh->clock_source) {
-			return csh;
+int clock_source_register(struct clock_source *cs) {
+	struct clock_source *tmp;
+
+	assert(cs);
+
+	dlist_foreach_entry(tmp, &clock_source_list, lnk) {
+		if (tmp == cs) {
+			/* Already registered, do nothing. */
+			return 0;
 		}
 	}
 
-	return NULL;
-}
-
-extern int clock_tick_init(void);
-
-int clock_source_register(struct clock_source *cs) {
-	struct clock_source_head *csh;
-
-	if (!cs) {
-		return -EINVAL;
-	}
-	csh = (struct clock_source_head *) pool_alloc(&clock_source_pool);
-	if (!csh) {
-		return -EBUSY;
-	}
-	csh->clock_source = cs;
-
-	/* TODO move it to arch dependent code */
-	if (cs->counter_device) {
-		cs->counter_shift = CS_SHIFT_CONSTANT;
-		cs->counter_mult = clock_sourcehz2mult(cs->counter_device->cycle_hz,
-				cs->counter_shift);
+	if (cs->init) {
+		cs->init(cs);
 	}
 
-	dlist_add_prev(dlist_head_init(&csh->lnk), &clock_source_list);
+	dlist_add_prev(dlist_head_init(&cs->lnk), &clock_source_list);
 
-	clock_tick_init();
+	monotonic_clock_select();
 
-	jiffies_init();
+	realtime_clock_select();
 
-	return ENOERR;
+	return 0;
 }
 
 int clock_source_unregister(struct clock_source *cs) {
-	struct clock_source_head *csh;
-
 	if (!cs) {
 		return -EINVAL;
 	}
-	if (NULL == (csh = clock_source_find(cs))) {
-		return -EBADF;
-	}
+
+	dlist_del(&cs->lnk);
 
 	return ENOERR;
 }
 
 struct timespec clock_source_read(struct clock_source *cs) {
-	struct timespec ret;
-	assert(cs);
-
-	/* See comment to clock_source_read in clock_source.h */
-	if (cs->event_device && cs->counter_device) {
-		ret = cs_full_read(cs);
-	} else if (cs->event_device) {
-		ret = cs_event_read(cs);
-	} else if (cs->counter_device) {
-		ret = cs_counter_read(cs);
-	} else {
-		panic("all clock sources must have at least one device (event or counter)\n");
-	}
-
-	return ret;
-}
-
-static struct timespec cs_full_read(struct clock_source *cs) {
-	static cycle_t prev_cycles, cycles, cycles_all;
-	int old_jiffies, cycles_per_jiff, safe;
+	struct timespec ts;
 	struct time_event_device *ed;
 	struct time_counter_device *cd;
-	struct timespec ts;
-
-	assert(cs);
+	uint64_t ns = 0;
 
 	ed = cs->event_device;
-	assert(ed);
-	assert(ed->event_hz != 0);
+	if (ed && (ed->flags & CLOCK_EVENT_PERIODIC_MODE)) {
+		ns += ((uint64_t) ed->jiffies * NSEC_PER_SEC) / ed->event_hz;
+	}
 
 	cd = cs->counter_device;
-	assert(cd);
-	assert(cd->read);
-	assert(cd->cycle_hz != 0);
-
-	cycles_per_jiff = cd->cycle_hz / ed->event_hz;
-	safe = 0;
-
-	do {
-		old_jiffies = clock_source_get_jiffies(cs);
-		cycles = cd->read();
-		safe++;
-	} while (old_jiffies != clock_source_get_jiffies(cs) && safe < 3);
-
-	if (ed->pending && ed->pending(ed->irq_nr)) {
-		old_jiffies++;
+	if (cd) {
+		ns += ((uint64_t) cd->read(cs) * NSEC_PER_SEC) / cd->cycle_hz;
 	}
 
-	cycles_all = cycles + (time64_t)old_jiffies * cycles_per_jiff;
-
-	/* TODO cheat. read() will miss for one jiff sometimes. */
-	if (cycles_all < prev_cycles) {
-		cycles_all += cycles_per_jiff;
-	}
-
-	prev_cycles = cycles_all;
-
-	ts = cycles32_to_timespec(cycles, cs->counter_mult, cs->counter_shift);
-	ts = timespec_add(ts, jiffies_to_timespec(ed->event_hz, old_jiffies));
+	ts = ns_to_timespec(ns);
 
 	return ts;
 }
 
-static struct timespec cs_event_read(struct clock_source *cs) {
-	return jiffies_to_timespec(cs->event_device->event_hz, clock_source_get_jiffies(cs));
+int clock_source_set_oneshot(struct clock_source *cs) {
+	assert(cs && cs->event_device);
+
+	if (!cs->event_device->set_oneshot) {
+		return -1;
+	}
+
+	if (!cs->event_device->set_oneshot(cs)) {
+		cs->event_device->flags &= ~CLOCK_EVENT_MODE_MASK;
+		cs->event_device->flags |= CLOCK_EVENT_ONESHOT_MODE;
+		return 0;
+	}
+
+	return -1;
 }
 
-static struct timespec cs_counter_read(struct clock_source *cs) {
-	return cycles64_to_timespec(cs->counter_device->cycle_hz, cs->counter_device->read());
+int clock_source_set_periodic(struct clock_source *cs, uint32_t hz) {
+	assert(cs && cs->event_device);
+
+	if (!cs->event_device->set_periodic) {
+		return -1;
+	}
+
+	if (cs->event_device->set_periodic(cs) != 0) {
+		return -1;
+	}
+
+	cs->event_device->flags &= ~CLOCK_EVENT_MODE_MASK;
+	cs->event_device->flags |= CLOCK_EVENT_PERIODIC_MODE;
+
+	cs->event_device->event_hz = hz;
+
+	/* FIXME Currently not all clock drivers support counter device. */
+	if (cs->counter_device) {
+		clock_source_set_next_event(cs, clock_source_ticks2cycles(cs, 1));
+	} else {
+		clock_source_set_next_event(cs, 0);
+	}
+
+	return 0;
+}
+
+int clock_source_set_next_event(struct clock_source *cs,
+		uint32_t next_event) {
+	assert(cs && cs->event_device);
+
+	if (!cs->event_device->set_next_event) {
+		return -1;
+	}
+
+	return cs->event_device->set_next_event(cs, next_event);
 }
 
 struct clock_source *clock_source_get_best(enum clock_source_property pr) {
 	struct clock_source *cs, *best;
-	struct clock_source_head *csh;
-	uint32_t best_resolution = 0;
-	uint32_t resolution = 0;
+	int32_t cycle_hz, best_hz, hz;
 
+	best_hz = -1;
 	best = NULL;
 
-	dlist_foreach_entry(csh, &clock_source_list, lnk) {
-		cs = csh->clock_source;
+	dlist_foreach_entry(cs, &clock_source_list, lnk) {
+		hz = 0;
+		cycle_hz = cs->counter_device ? cs->counter_device->cycle_hz : 0;
 
 		switch (pr) {
 			case CS_ANY:
+				hz = cycle_hz;
+				break;
 			case CS_WITH_IRQ:
 				if (cs->event_device) {
-					resolution = cs->event_device->event_hz;
+					hz = cycle_hz;
 				}
-
-				if (pr == CS_ANY && cs->counter_device) {
-					resolution = max(resolution, cs->counter_device->cycle_hz);
-				}
-				if (resolution > best_resolution) {
-					best_resolution = resolution;
-					best = cs;
-				}
-			break;
-
+				break;
 			case CS_WITHOUT_IRQ:
-				if (cs->counter_device) {
-					resolution = cs->counter_device->cycle_hz;
+				if (!cs->event_device) {
+					hz = cycle_hz;
 				}
-				if (resolution > best_resolution) {
-					best_resolution = resolution;
-					best = cs;
-				}
-			break;
+				break;
+		}
+
+		if (hz > best_hz) {
+			best_hz = hz;
+			best = cs;
 		}
 	}
 
 	return best;
 }
 
-struct dlist_head *clock_source_get_list(void) {
-	return &clock_source_list;
+struct clock_source *clock_source_get_by_name(const char *name) {
+	struct clock_source *cs;
+
+	dlist_foreach_entry(cs, &clock_source_list, lnk) {
+		if (!strcmp(cs->name, name)) {
+			return cs;
+		}
+	}
+
+	return NULL;
 }
 
 time64_t clock_source_get_hwcycles(struct clock_source *cs) {
@@ -223,5 +191,5 @@ time64_t clock_source_get_hwcycles(struct clock_source *cs) {
 	assert(cs->event_device && cs->counter_device);
 
 	load = cs->counter_device->cycle_hz / cs->event_device->event_hz;
-	return ((uint64_t) cs->jiffies) * load + cs->counter_device->read();
+	return ((uint64_t) cs->event_device->jiffies) * load + cs->counter_device->read(cs);
 }

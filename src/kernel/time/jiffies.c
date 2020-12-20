@@ -7,17 +7,23 @@
  * @date 10.04.2012
  * @author Anton Bondarev
  */
-#include <embox/unit.h>
+
+#include <string.h>
 #include <kernel/time/clock_source.h>
 #include <kernel/time/time.h>
 
-const struct clock_source *cs_jiffies;
+#define HZ      OPTION_GET(NUMBER, hz)
+#define CS_NAME OPTION_GET(STRING, cs_name)
+
+extern struct clock_source CLOCK_SOURCE_NAME(CS_NAME);
+
+const struct clock_source *cs_jiffies = &CLOCK_SOURCE_NAME(CS_NAME);
 
 clock_t clock_sys_ticks(void) {
 	if (!cs_jiffies) {
 		return 0;
 	}
-	return (clock_t)cs_jiffies->jiffies;
+	return (clock_t)cs_jiffies->event_device->jiffies;
 }
 
 clock_t ns2jiffies(time64_t ns) {
@@ -38,28 +44,13 @@ uint32_t clock_freq(void) {
 }
 
 int jiffies_init(void) {
-	const struct clock_source *cs;
-	struct time_dev_conf jiffies_conf = {
-		HW_TIMER_PERIOD
-	};
+	extern int clock_tick_init(void);
 
-	/* find clock_event_device with maximal frequency  */
-	cs = clock_source_get_best(CS_WITH_IRQ);
-	assert(cs);
+	clock_tick_init();
 
-	cs_jiffies = cs;
+	clock_source_register((struct clock_source *) cs_jiffies);
 
-	/* set periodic mode */
-	assert(cs->event_device->config);
-	cs->event_device->config(&jiffies_conf);
+	clock_source_set_periodic((struct clock_source *) cs_jiffies, HZ);
 
 	return 0;
-}
-
-int time_before(clock_t now, clock_t wait) {
-	return now > wait;
-}
-
-int time_after(clock_t now, clock_t wait) {
-	return now < wait;
 }

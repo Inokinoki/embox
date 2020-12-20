@@ -6,6 +6,10 @@
  * @date 2016-06-12
  */
 
+#include <sys/mman.h>
+
+#include <drivers/common/memory.h>
+
 #include <hal/reg.h>
 #include <kernel/irq.h>
 #include <kernel/printk.h>
@@ -60,13 +64,12 @@
 #define _BASE_HZ     528000000
 #define _BASE_SCALER 8
 
-static struct clock_source imx6_gpt_clock_source;
 static irq_return_t clock_handler(unsigned int irq_nr, void *data) {
 	REG32_STORE(GPT_SR, 0x3F);
 	return IRQ_HANDLED;
 }
 
-static int imx6_gpt_init(void) {
+static int imx6_gpt_init(struct clock_source *cs) {
 	uint32_t t;
 	REG32_STORE(GPT_CR, GPT_CR_SWR);
 
@@ -74,11 +77,13 @@ static int imx6_gpt_init(void) {
 	REG32_STORE(GPT_CR,   0);
 	REG32_STORE(GPT_IR,   0);
 
+#if 0
 	t = REG32_LOAD(0x20C4000 + 0x14);
 	printk("STATUS %#x\n", t);
 	t &= ~(1 << 25);
 
 	REG32_STORE(0x20C4000, t);
+#endif
 
 	REG32_STORE(GPT_PR, GPT_PRESCALER);
 
@@ -91,26 +96,24 @@ static int imx6_gpt_init(void) {
 
 	REG32_STORE(GPT_CR, t);
 
-	clock_source_register(&imx6_gpt_clock_source);
 
 	return irq_attach(GPT_IRQ,
 	                  clock_handler,
 	                  0,
-	                  &imx6_gpt_clock_source,
+	                  cs,
 	                  "i.MX6 General Purpose Timer");
 }
 
-static int imx6_gpt_config(struct time_dev_conf * conf) {
+static int imx6_gpt_set_periodic(struct clock_source *cs) {
 	return 0;
 }
 
-static cycle_t imx6_gpt_read(void) {
+static cycle_t imx6_gpt_read(struct clock_source *cs) {
 	return REG32_LOAD(GPT_CNT);
 }
 
 static struct time_event_device imx6_gpt_event = {
-	.config   = imx6_gpt_config,
-	.event_hz = GPT_TARGET_HZ,
+	.set_periodic   = imx6_gpt_set_periodic,
 	.irq_nr   = GPT_IRQ,
 };
 
@@ -119,13 +122,9 @@ static struct time_counter_device imx6_gpt_counter = {
 	.cycle_hz = GPT_TARGET_HZ,
 };
 
-static struct clock_source imx6_gpt_clock_source = {
-	.name           = "imx6_gpt",
-	.event_device   = &imx6_gpt_event,
-	.counter_device = &imx6_gpt_counter,
-	.read           = clock_source_read,
-};
+PERIPH_MEMORY_DEFINE(imx_gpt, GPT_BASE, 0x40);
 
-EMBOX_UNIT_INIT(imx6_gpt_init);
+STATIC_IRQ_ATTACH(GPT_IRQ, clock_handler, NULL);
 
-STATIC_IRQ_ATTACH(GPT_IRQ, clock_handler, &imx6_clock_source);
+CLOCK_SOURCE_DEF( imx6_gpt,  imx6_gpt_init, NULL,
+	&imx6_gpt_event, &imx6_gpt_counter);

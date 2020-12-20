@@ -14,6 +14,7 @@
 
 #include <stdint.h>
 #include <util/dlist.h>
+#include <embox/unit.h>
 #include <kernel/time/time_device.h>
 #include <kernel/time/ktime.h>
 #include <kernel/time/time.h>
@@ -26,9 +27,6 @@ enum clock_source_property {
 	CS_WITHOUT_IRQ = 2
 };
 
-/* TODO move it arch dependent code */
-#define CS_SHIFT_CONSTANT 24
-
 /**
  * Time source of hardware time - events and cycles.
  * @param read - return count of ns
@@ -38,19 +36,43 @@ struct clock_source {
 	const char *name;
 	struct time_event_device *event_device;
 	struct time_counter_device *counter_device;
-	volatile clock_t jiffies; /**< count of jiffies since clock source started */
-	uint32_t flags; /**< periodical or not */
-	struct timespec (*read)(struct clock_source *cs);
-	uint32_t counter_mult;
-	uint32_t counter_shift;
+
+	int (*init)(struct clock_source *cs);
+
+	void *driver_priv_data;
+
+	struct dlist_head lnk;
 };
 
 extern struct clock_source *clock_source_get_best(enum clock_source_property property);
+extern struct clock_source *clock_source_get_by_name(const char *name);
 
-extern struct dlist_head *clock_source_get_list(void);
+extern int clock_source_set_oneshot(struct clock_source *cs);
+extern int clock_source_set_periodic(struct clock_source *cs, uint32_t hz);
+extern int clock_source_set_next_event(struct clock_source *cs,
+		uint32_t next_event);
 
-#define clock_source_foreach(csh) \
-	dlist_foreach_entry(csh, clock_source_get_list(), lnk)
+static inline clock_t clock_source_get_cycles(struct clock_source *cs) {
+	assert(cs && cs->counter_device);
+
+	return cs->counter_device->read(cs);
+}
+
+static inline uint64_t clock_source_cycles2ticks(struct clock_source *cs,
+	                                             uint64_t cycles) {
+	assert(cs);
+	assert(cs->event_device && cs->counter_device);
+
+	return (cycles * cs->event_device->event_hz) / cs->counter_device->cycle_hz;
+}
+
+static inline uint64_t clock_source_ticks2cycles(struct clock_source *cs,
+	                                             uint64_t ticks) {
+	assert(cs);
+	assert(cs->event_device && cs->counter_device);
+
+	return (ticks * cs->counter_device->cycle_hz) / cs->event_device->event_hz;
+}
 
 /**
  * Read cycles from clock source since moment when it started. This function may be used exactly
@@ -74,19 +96,24 @@ static inline uint32_t clock_sourcehz2mult(uint32_t hz, uint32_t shift) {
 	return tmp / hz;
 }
 
-struct clock_source_head {
-	struct dlist_head lnk;
-	struct clock_source *clock_source;
-};
+#define CLOCK_SOURCE_NAME(name) \
+	MACRO_CONCAT(clock_source_, name)
 
-#define TIME_EVENT_DEVICE(ted) \
-	ARRAY_SPREAD_DECLARE(const struct time_event_device *const, \
-			__event_devices) \
-    ARRAY_SPREAD_ADD(__event_devices, ted);
+#define CLOCK_SOURCE_DEF(cs_name, cs_init, cs_data, cs_event, cs_counter) \
+	struct clock_source CLOCK_SOURCE_NAME(cs_name) = { \
+		.name = #cs_name, \
+		.init = cs_init, \
+		.event_device = cs_event, \
+		.counter_device = cs_counter, \
+		.driver_priv_data = cs_data, \
+	}; \
+	__CLOCK_SOURCE_UNIT_INIT(&CLOCK_SOURCE_NAME(cs_name))
 
-#define TIME_COUNTER_DEVICE(tcd) \
-	ARRAY_SPREAD_DECLARE(const struct time_counter_device *const, \
-			__counter_devices); \
-    ARRAY_SPREAD_ADD(__counter_devices, tcd);
+/* Private macro */
+#define __CLOCK_SOURCE_UNIT_INIT(cs) \
+	static int __clock_source_init(void) { \
+		return clock_source_register(cs); \
+	} \
+	EMBOX_UNIT_INIT(__clock_source_init)
 
 #endif /* KERNEL_CLOCK_SOURCE_H_ */

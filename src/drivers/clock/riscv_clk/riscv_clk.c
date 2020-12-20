@@ -20,8 +20,6 @@
 
 #include <embox/unit.h>
 
-EMBOX_UNIT_INIT(riscv_clock_init);
-
 #define HZ 1000
 #define COUNT_OFFSET (RTC_CLOCK / HZ)
 #define RTC_CLOCK    OPTION_GET(NUMBER, rtc_freq)
@@ -37,7 +35,7 @@ static int clock_handler(unsigned int irq_nr, void *dev_id) {
 	return IRQ_HANDLED;
 }
 
-static int riscv_clock_setup(struct time_dev_conf * conf) {
+static int riscv_clock_setup(struct clock_source *cs) {
 	REG64_STORE(MTIMECMP, REG64_LOAD(MTIME) + COUNT_OFFSET);
 	enable_timer_interrupts();
 
@@ -45,27 +43,12 @@ static int riscv_clock_setup(struct time_dev_conf * conf) {
 }
 
 static struct time_event_device riscv_event_device  = {
-	.config = riscv_clock_setup,
-	.event_hz = HZ,
+	.set_periodic = riscv_clock_setup,
 	.name = "riscv_clk",
 	.irq_nr = MACHINE_TIMER_INTERRUPT
 };
 
-static struct clock_source riscv_clock_source = {
-	.name = "riscv_clk",
-	.event_device = &riscv_event_device,
-	.read = clock_source_read
-};
+CLOCK_SOURCE_DEF(riscv_clk, NULL, NULL,
+	&riscv_event_device, NULL);
 
-static int riscv_clock_init(void) {
-	int err;
-
-	err = clock_source_register(&riscv_clock_source);
-	if (err) {
-		return err;
-	}
-
-	return 0;
-}
-
-RISCV_TIMER_IRQ_DEF(clock_handler, &riscv_clock_source);
+RISCV_TIMER_IRQ_DEF(clock_handler, &CLOCK_SOURCE_NAME(riscv_clk));
