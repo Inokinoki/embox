@@ -4,7 +4,7 @@
  *
  * See BCM2835-ARM-Peripherals.pdf, 7 chapter for details.
  *
- * @date 06.11.20
+ * @date 01.04.21
  * @author Weixuan XIAO
  */
 
@@ -27,9 +27,17 @@
 
 #include <embox/unit.h>
 
-EMBOX_UNIT_INIT(this_init);
+/*
+Physical addresses range from 0x20000000 to 0x20FFFFFF for peripherals.
+The bus addresses for peripherals are set up to map onto the peripheral bus address range starting at 0x7E000000.
+Thus a peripheral advertised here at bus address 0x7Ennnnnn is available at physical address 0x20nnnnnn.
 
-#define BCM2836_INTERRUPT_BASE 0x4000B200
+The peripheral addresses specified in this document are bus addresses.
+Software directly accessing  peripherals must translate these addresses into physical or virtual addresses,
+as described above. Software accessing peripherals using the DMA engines must use bus addresses.
+*/
+
+#define BCM2835_INTERRUPT_BASE 0x3F00B200
 
 #define BANK_CAPACITY 32
 
@@ -70,18 +78,18 @@ struct raspi_interrupt_regs {
 };
 
 static volatile struct raspi_interrupt_regs * const regs =
-        (volatile struct raspi_interrupt_regs*)((int)BCM2836_INTERRUPT_BASE);
+        (volatile struct raspi_interrupt_regs*)((int)BCM2835_INTERRUPT_BASE);
 
 
-static int this_init(void) {
+static int raspi_intc_init(void) {
 #if 0
 	/* Map one vmem page to handle this device if mmu is used */
 	mmap_device_memory(
-			(void*) ((uintptr_t) BCM2836_INTERRUPT_BASE & ~MMU_PAGE_MASK),
+			(void*) ((uintptr_t) BCM2835_INTERRUPT_BASE & ~MMU_PAGE_MASK),
 			PROT_READ | PROT_WRITE | PROT_NOCACHE,
 			binalign_bound(sizeof(struct raspi_interrupt_regs), MMU_PAGE_SIZE),
 			MAP_FIXED,
-			((uintptr_t) BCM2836_INTERRUPT_BASE & ~MMU_PAGE_MASK)
+			((uintptr_t) BCM2835_INTERRUPT_BASE & ~MMU_PAGE_MASK)
 			);
 #endif
 	return 0;
@@ -149,4 +157,6 @@ void swi_handle(void) {
 	panic(__func__);
 }
 
-PERIPH_MEMORY_DEFINE(raspi_systick, BCM2836_INTERRUPT_BASE, sizeof(struct raspi_interrupt_regs));
+PERIPH_MEMORY_DEFINE(raspi_intc, BCM2835_INTERRUPT_BASE, sizeof(struct raspi_interrupt_regs));
+
+IRQCTRL_DEF(raspi_intc, raspi_intc_init);

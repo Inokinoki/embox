@@ -1,20 +1,20 @@
 /**
  * @file
- * @brief Mailbox Communication mechanism for Raspberry Pi
+ * @brief Mailbox Communication mechanism for Raspberry Pi 2/3
  *
- * @date 16.07.15
+ * @date 01.04.21
  * @author Michele Di Giorgio
  */
 
 #include <errno.h>
 #include <stdint.h>
 
-#include <drivers/mailbox/bcm2836_mailbox.h>
+#include <drivers/mailbox/bcm283X_mailbox.h>
 #include <hal/reg.h>
 #include <hal/mem_barriers.h>
 
-static struct bcm2836_mailbox_regs volatile *const mailbox_regs =
-		(struct bcm2836_mailbox_regs volatile *) BCM2836_MAILBOX_BASE;
+static struct bcm283X_mailbox_regs volatile *const mailbox_regs =
+		(struct bcm283X_mailbox_regs volatile *) BCM283X_MAILBOX_BASE;
 
 /**
  * Read from memory mapped IO registers with a memory barrier around.
@@ -39,20 +39,20 @@ static void write_mmio(uint32_t volatile *addr, uint32_t val) {
 	REG_STORE(addr, val);
 }
 
-int bcm2836_mailbox_write(uint32_t data, uint32_t channel) {
+int bcm283X_mailbox_write(uint32_t data, uint32_t channel) {
 	/* validate channel number */
 	if (channel > 15) {
 		return -EINVAL;
 	}
 	/* lowest 4 bits of data must be 0 and combine data and the channel */
-	uint32_t to_write = (data & BCM2836_MAILBOX_DATA_MASK) | channel;
+	uint32_t to_write = (data & BCM283X_MAILBOX_DATA_MASK) | channel;
 	/* read the status field and wait until ready */
-	while (read_mmio((uint32_t volatile *)&mailbox_regs->Status) & BCM2836_MAILBOX_FULL);
+	while (read_mmio((uint32_t volatile *)&mailbox_regs->Status) & BCM283X_MAILBOX_FULL);
 	write_mmio((uint32_t volatile *)&mailbox_regs->Write, to_write);
 	return 0;
 }
 
-uint32_t bcm2836_mailbox_read(uint32_t channel) {
+uint32_t bcm283X_mailbox_read(uint32_t channel) {
 	uint32_t data;
 
 	if (channel > 15) {
@@ -61,9 +61,9 @@ uint32_t bcm2836_mailbox_read(uint32_t channel) {
 
 	/* repeat reading if the channel was wrong */
 	do {
-		while (read_mmio((uint32_t volatile *)&mailbox_regs->Status) & BCM2836_MAILBOX_EMPTY);
+		while (read_mmio((uint32_t volatile *)&mailbox_regs->Status) & BCM283X_MAILBOX_EMPTY);
 		data = read_mmio((uint32_t volatile *)&mailbox_regs->Read);
-	} while ((data & BCM2836_MAILBOX_CHANNEL_MASK) != channel);
+	} while ((data & BCM283X_MAILBOX_CHANNEL_MASK) != channel);
 	/* return the message only (top 28 bits of the read data) */
-	return data & BCM2836_MAILBOX_DATA_MASK;
+	return data & BCM283X_MAILBOX_DATA_MASK;
 }

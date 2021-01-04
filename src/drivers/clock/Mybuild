@@ -2,12 +2,3 @@ package embox.driver.clock
 
 module no_clock {
 }
-
-module raspi2_systick extends embox.arch.clock {
-	source "raspi2_systick.c"
-
-	//depends embox.kernel.irq
-	depends embox.kernel.time.clock_source
-	@NoRuntime depends embox.kernel.time.timer_handler
-	depends embox.driver.periph_memory
-}

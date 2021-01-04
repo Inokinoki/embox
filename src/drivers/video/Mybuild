@@ -62,7 +62,7 @@ module raspi_video {
 module raspi2_video {
 	source "raspi2_video.c"
 
-	depends embox.driver.mailbox.bcm2836_mailbox
+	depends embox.driver.mailbox.bcm283X_mailbox
 	@NoRuntime depends fb
 	@NoRuntime depends embox.compat.libc.all
 	depends embox.mem.vmem_device_memory

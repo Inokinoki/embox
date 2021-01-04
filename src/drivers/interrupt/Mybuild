@@ -6,9 +6,3 @@ module no_interrupts extends irqctrl_api {
 	source "no_interrupts.h"
 	source "no_interrupts.c"
 }
-
-module raspi2 extends irqctrl_api {
-	source "raspi2.c", "raspi.h"
-
-	depends embox.util.Bit
-}

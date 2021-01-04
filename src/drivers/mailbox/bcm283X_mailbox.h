@@ -1,39 +1,39 @@
 /**
  * @file
- * @brief Mailbox Communication mechanism header for BCM2836 chip
+ * @brief Mailbox Communication mechanism header for BCM283X chip
  *
- * @date 16.07.15
- * @author Michele Di Giorgio
+ * @date 01.04.21
+ * @author Weixuan XIAO
  */
 
-#ifndef BCM2836_MAILBOX_H_
-#define BCM2836_MAILBOX_H_
+#ifndef BCM283X_MAILBOX_H_
+#define BCM283X_MAILBOX_H_
 
 #include <stdint.h>
 
-#define BCM2836_FB_MAX_RES    4096
-#define BCM2836_FB_MAX_BPP    32
+#define BCM283X_FB_MAX_RES    4096
+#define BCM283X_FB_MAX_BPP    32
 
 /**
  * The Mailbox gives the ability to send/receive messages to/from the processor
  * and the graphic card.
  */
-#define BCM2836_MAILBOX_BASE            0x3F00B880
-#define BCM2836_MAILBOX_DATA_MASK       0xFFFFFFF0
-#define BCM2836_MAILBOX_CHANNEL_MASK    0x0000000F
+#define BCM283X_MAILBOX_BASE            0x3F00B880
+#define BCM283X_MAILBOX_DATA_MASK       0xFFFFFFF0
+#define BCM283X_MAILBOX_CHANNEL_MASK    0x0000000F
 
-/* BCM2836 Mailbox Status Flags */
-#define BCM2836_MAILBOX_EMPTY           0x40000000
-#define BCM2836_MAILBOX_FULL            0x80000000
+/* BCM283X Mailbox Status Flags */
+#define BCM283X_MAILBOX_EMPTY           0x40000000
+#define BCM283X_MAILBOX_FULL            0x80000000
 
-/* BCM2836 Mailbox Channels */
-#define BCM2836_POWER_MGMT_CHANNEL      0
-#define BCM2836_FRAMEBUFFER_CHANNEL     1
+/* BCM283X Mailbox Channels */
+#define BCM283X_POWER_MGMT_CHANNEL      0
+#define BCM283X_FRAMEBUFFER_CHANNEL     1
 
 /**
  * Layout of the Mailbox Registers.
  */
-struct bcm2836_mailbox_regs {
+struct bcm283X_mailbox_regs {
 	uint32_t Read;              /* Receiving mail.              R- */
 	uint32_t unused1;
 	uint32_t unused2;
@@ -48,7 +48,7 @@ struct bcm2836_mailbox_regs {
 /**
  * Format of the messages to the graphics processor.
  */
-struct bcm2836_fb_info {
+struct bcm283X_fb_info {
 	uint32_t width_p;       /* width of the physical display */
 	uint32_t height_p;      /* height of the physical display */
 	uint32_t width_v;       /* width of the virtual display */
@@ -69,7 +69,7 @@ struct bcm2836_fb_info {
  * @return 0 - in case of success
  * @return < 0 - in case of error
  */
-int bcm2836_mailbox_write(uint32_t data, uint32_t channel);
+int bcm283X_mailbox_write(uint32_t data, uint32_t channel);
 
 /**
  * Routine to read a message from a particular mailbox.
@@ -78,6 +78,6 @@ int bcm2836_mailbox_write(uint32_t data, uint32_t channel);
  * @return data read - in case of success
  * @return < 0 - in case of error
  */
-uint32_t bcm2836_mailbox_read(uint32_t channel);
+uint32_t bcm283X_mailbox_read(uint32_t channel);
 
-#endif /* BCM2836_MAILBOX_H_ */
+#endif /* BCM283X_MAILBOX_H_ */

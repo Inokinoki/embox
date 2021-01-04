@@ -6,9 +6,9 @@ module bcm2835_mailbox {
 		"bcm2835_mailbox.c"
 }
 
-module bcm2836_mailbox {
+module bcm283X_mailbox {
 	@IncludeExport(path="drivers/mailbox")
-	source "bcm2836_mailbox.h",
-		"bcm2836_mailbox.c"
+	source "bcm283X_mailbox.h",
+		"bcm283X_mailbox.c"
 }
 
